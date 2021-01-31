@@ -9,6 +9,8 @@
 #include "dataStructures.h"
 
 using namespace std;
+int getBoundingBox(cv::KeyPoint, std::vector<BoundingBox>);
+int getElementWithMostOccurences(vector<int>);
 
 
 // Create groups of Lidar points whose projection into the camera falls into the same bounding box
@@ -160,4 +162,72 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
 void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bbBestMatches, DataFrame &prevFrame, DataFrame &currFrame)
 {
     // ...
+    map <int, vector<int>> tempMatches;
+
+    // loop over all the matches between current and previous frame
+    for(auto match = matches.begin(); match != matches.end(); match++) {
+        // get the kp from the current frame and determine the bb it belongs to
+        int matchIndexCurr = match->trainIdx;
+        cv::KeyPoint keyPointInCurr = currFrame.keypoints[matchIndexCurr];
+        int boundingBoxIdCurr = getBoundingBox(keyPointInCurr, currFrame.boundingBoxes);
+
+        // get the kp from the previous frame and determine the bb it belongs to
+        int matchIndexPrev = match->queryIdx;
+        cv::KeyPoint keyPointInPrev = prevFrame.keypoints[matchIndexPrev];
+        int boundingBoxIdPrev = getBoundingBox(keyPointInPrev, prevFrame.boundingBoxes);
+        
+        if (boundingBoxIdCurr >= 0 && boundingBoxIdPrev >= 0) 
+        {
+            tempMatches[boundingBoxIdCurr].push_back(boundingBoxIdPrev);
+        }
+    }
+
+
+    for (auto it = tempMatches.begin(); it != tempMatches.end(); ++it)
+    {
+        int bestBoundingBox = getElementWithMostOccurences(it->second);
+        bbBestMatches.insert(pair<int, int> (it->first, bestBoundingBox));
+    }
+
+    for (auto it = bbBestMatches.begin(); it != bbBestMatches.end(); ++it)
+    {
+       std::cout << it->first << "->" << it->second << std::endl; 
+    }
+
+}
+
+
+int getElementWithMostOccurences(vector<int> v)
+{
+    // slow and ugly -> FIXXME
+    map<int, int> occ;
+    for(int e: v)
+    {
+        occ[e] += 1;
+    }
+
+    int elementWithMaxOccurences = -1;
+    int maxOccurances = -1;
+    
+    for (auto it = occ.begin(); it != occ.end(); ++it)
+    {
+        if(it->second > maxOccurances) {
+            elementWithMaxOccurences = it->first;
+        } 
+    }
+
+    return elementWithMaxOccurences;
+}
+
+
+int getBoundingBox(cv::KeyPoint keyPoint, std::vector<BoundingBox> boundingBoxes)
+{
+    for(auto currBoundingBox = boundingBoxes.begin(); currBoundingBox != boundingBoxes.end(); currBoundingBox++) 
+    {
+        if (currBoundingBox->roi.contains(keyPoint.pt))
+        {
+            return currBoundingBox->boxID;
+        }
+    }
+    return -1;
 }
