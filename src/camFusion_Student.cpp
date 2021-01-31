@@ -9,7 +9,7 @@
 #include "dataStructures.h"
 
 using namespace std;
-int getBoundingBox(cv::KeyPoint, std::vector<BoundingBox>);
+std::vector<int> getBoundingBox(cv::KeyPoint, std::vector<BoundingBox>);
 int getElementWithMostOccurences(vector<int>);
 
 
@@ -161,39 +161,65 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
 
 void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bbBestMatches, DataFrame &prevFrame, DataFrame &currFrame)
 {
-    // ...
-    map <int, vector<int>> tempMatches;
+    // multimap <int, int> tempMatches;
+    map <int, vector<int>> tempMatchesPrevCurr;
+    map <int, vector<int>> tempMatchesCurrPrev;
+    // set<int> sourceBoundingBoxes{};
 
     // loop over all the matches between current and previous frame
     for(auto match = matches.begin(); match != matches.end(); match++) {
         // get the kp from the current frame and determine the bb it belongs to
         int matchIndexCurr = match->trainIdx;
-        cv::KeyPoint keyPointInCurr = currFrame.keypoints[matchIndexCurr];
-        int boundingBoxIdCurr = getBoundingBox(keyPointInCurr, currFrame.boundingBoxes);
+        cv::KeyPoint keyPointInCurr = currFrame.keypoints.at(matchIndexCurr);
+        std::vector<int> boundingBoxIdsCurr = getBoundingBox(keyPointInCurr, currFrame.boundingBoxes);
+        if (boundingBoxIdsCurr.size() != 1) // omit if enclosed by more than one bounding box
+        {
+            continue;
+        }
 
         // get the kp from the previous frame and determine the bb it belongs to
         int matchIndexPrev = match->queryIdx;
-        cv::KeyPoint keyPointInPrev = prevFrame.keypoints[matchIndexPrev];
-        int boundingBoxIdPrev = getBoundingBox(keyPointInPrev, prevFrame.boundingBoxes);
-        
-        if (boundingBoxIdCurr >= 0 && boundingBoxIdPrev >= 0) 
+        cv::KeyPoint keyPointInPrev = prevFrame.keypoints.at(matchIndexPrev);
+        std::vector<int> boundingBoxIdsPrev = getBoundingBox(keyPointInPrev, prevFrame.boundingBoxes);
+        if (boundingBoxIdsCurr.size() != 1) // omit if enclosed by more than one bounding box
         {
-            tempMatches[boundingBoxIdCurr].push_back(boundingBoxIdPrev);
+            continue;
+        }
+
+        for(int boundingBoxIdCurr: boundingBoxIdsCurr) 
+        {
+            for(int boundingBoxIdPrev: boundingBoxIdsPrev) 
+            {
+               tempMatchesPrevCurr[boundingBoxIdPrev].push_back(boundingBoxIdCurr);
+               tempMatchesCurrPrev[boundingBoxIdCurr].push_back(boundingBoxIdPrev);
+            }
         }
     }
 
-
-    for (auto it = tempMatches.begin(); it != tempMatches.end(); ++it)
+    map <int, int> tempMatchesPrevCurrBest;
+    for (auto it = tempMatchesPrevCurr.begin(); it != tempMatchesPrevCurr.end(); ++it)
     {
         int bestBoundingBox = getElementWithMostOccurences(it->second);
-        bbBestMatches.insert(pair<int, int> (it->first, bestBoundingBox));
+        tempMatchesPrevCurrBest[it->first] = bestBoundingBox;
     }
 
-    for (auto it = bbBestMatches.begin(); it != bbBestMatches.end(); ++it)
+    map <int, int> tempMatchesCurrPrevBest;
+    for (auto it = tempMatchesCurrPrev.begin(); it != tempMatchesCurrPrev.end(); ++it)
     {
-       std::cout << it->first << "->" << it->second << std::endl; 
+        int bestBoundingBox = getElementWithMostOccurences(it->second);
+        tempMatchesCurrPrevBest[it->first] = bestBoundingBox;
     }
 
+    for (auto it = tempMatchesPrevCurrBest.begin(); it != tempMatchesPrevCurrBest.end(); ++it)
+    {
+        std::cout << tempMatchesCurrPrevBest.count(it->second) << std::endl;
+        if (tempMatchesCurrPrevBest.count(it->second) > 0 && tempMatchesCurrPrevBest[it->second] == it->first)
+        {
+            //                                   prev,      curr
+            bbBestMatches.insert(pair<int, int> (it->first, it->second));
+            std::cout << it->first << "->" << it->second << std::endl;
+        }
+    }
 }
 
 
@@ -212,6 +238,7 @@ int getElementWithMostOccurences(vector<int> v)
     for (auto it = occ.begin(); it != occ.end(); ++it)
     {
         if(it->second > maxOccurances) {
+            maxOccurances = it->second;
             elementWithMaxOccurences = it->first;
         } 
     }
@@ -220,14 +247,16 @@ int getElementWithMostOccurences(vector<int> v)
 }
 
 
-int getBoundingBox(cv::KeyPoint keyPoint, std::vector<BoundingBox> boundingBoxes)
+// returns the ids of the bounding boxes that enclose the keypoint
+std::vector<int> getBoundingBox(cv::KeyPoint keyPoint, std::vector<BoundingBox> boundingBoxes)
 {
+    std::vector<int> bb;
     for(auto currBoundingBox = boundingBoxes.begin(); currBoundingBox != boundingBoxes.end(); currBoundingBox++) 
     {
         if (currBoundingBox->roi.contains(keyPoint.pt))
         {
-            return currBoundingBox->boxID;
+            bb.push_back(currBoundingBox->boxID);
         }
     }
-    return -1;
+    return bb;
 }
