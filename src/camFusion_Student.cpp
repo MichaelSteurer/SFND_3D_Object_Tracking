@@ -161,10 +161,7 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
 
 void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bbBestMatches, DataFrame &prevFrame, DataFrame &currFrame)
 {
-    // multimap <int, int> tempMatches;
     map <int, vector<int>> tempMatchesPrevCurr;
-    map <int, vector<int>> tempMatchesCurrPrev;
-    // set<int> sourceBoundingBoxes{};
 
     // loop over all the matches between current and previous frame
     for(auto match = matches.begin(); match != matches.end(); match++) {
@@ -172,7 +169,7 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
         int matchIndexCurr = match->trainIdx;
         cv::KeyPoint keyPointInCurr = currFrame.keypoints.at(matchIndexCurr);
         std::vector<int> boundingBoxIdsCurr = getBoundingBox(keyPointInCurr, currFrame.boundingBoxes);
-        if (boundingBoxIdsCurr.size() != 1) // omit if enclosed by more than one bounding box
+        if (boundingBoxIdsCurr.size() != 1) // omit if not enclosed by exactly one bounding box
         {
             continue;
         }
@@ -181,7 +178,7 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
         int matchIndexPrev = match->queryIdx;
         cv::KeyPoint keyPointInPrev = prevFrame.keypoints.at(matchIndexPrev);
         std::vector<int> boundingBoxIdsPrev = getBoundingBox(keyPointInPrev, prevFrame.boundingBoxes);
-        if (boundingBoxIdsCurr.size() != 1) // omit if enclosed by more than one bounding box
+        if (boundingBoxIdsCurr.size() != 1) // omit if not enclosed by exactly one bounding box
         {
             continue;
         }
@@ -191,7 +188,6 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
             for(int boundingBoxIdPrev: boundingBoxIdsPrev) 
             {
                tempMatchesPrevCurr[boundingBoxIdPrev].push_back(boundingBoxIdCurr);
-               tempMatchesCurrPrev[boundingBoxIdCurr].push_back(boundingBoxIdPrev);
             }
         }
     }
@@ -200,32 +196,15 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
     for (auto it = tempMatchesPrevCurr.begin(); it != tempMatchesPrevCurr.end(); ++it)
     {
         int bestBoundingBox = getElementWithMostOccurences(it->second);
-        tempMatchesPrevCurrBest[it->first] = bestBoundingBox;
-    }
-
-    map <int, int> tempMatchesCurrPrevBest;
-    for (auto it = tempMatchesCurrPrev.begin(); it != tempMatchesCurrPrev.end(); ++it)
-    {
-        int bestBoundingBox = getElementWithMostOccurences(it->second);
-        tempMatchesCurrPrevBest[it->first] = bestBoundingBox;
-    }
-
-    for (auto it = tempMatchesPrevCurrBest.begin(); it != tempMatchesPrevCurrBest.end(); ++it)
-    {
-        std::cout << tempMatchesCurrPrevBest.count(it->second) << std::endl;
-        if (tempMatchesCurrPrevBest.count(it->second) > 0 && tempMatchesCurrPrevBest[it->second] == it->first)
-        {
-            //                                   prev,      curr
-            bbBestMatches.insert(pair<int, int> (it->first, it->second));
-            std::cout << it->first << "->" << it->second << std::endl;
-        }
+        //                                   prev,      curr
+        bbBestMatches.insert(pair<int, int> (it->first, bestBoundingBox));
     }
 }
 
-
+// returns the element with max occurrences
 int getElementWithMostOccurences(vector<int> v)
 {
-    // slow and ugly -> FIXXME
+    // this is terrible. I'm sorry. FIXXXME
     map<int, int> occ;
     for(int e: v)
     {
