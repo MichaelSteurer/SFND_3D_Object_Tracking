@@ -4,6 +4,8 @@
 #include <numeric>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+// #include <map>
+// #include <set>
 
 #include "camFusion.hpp"
 #include "dataStructures.h"
@@ -12,6 +14,7 @@ using namespace std;
 std::vector<int> getBoundingBox(cv::KeyPoint, std::vector<BoundingBox>);
 int getElementWithMostOccurences(vector<int>);
 std::pair<float, float> getXLimits(std::vector<LidarPoint> &points, float);
+std::pair<float, float> meanStdev(std::vector<float>);
 
 
 // Create groups of Lidar points whose projection into the camera falls into the same bounding box
@@ -141,7 +144,60 @@ void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, 
 // associate a given bounding box with the keypoints it contains
 void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, std::vector<cv::DMatch> &kptMatches)
 {
-    // ...
+    for(auto match = kptMatches.begin(); match != kptMatches.end(); match++) {
+        // get the kp from the current frame and determine the bb it belongs to
+        cv::KeyPoint c = kptsCurr[match->trainIdx];
+        cv::KeyPoint p = kptsPrev[match->queryIdx];
+
+        if (boundingBox.roi.contains(c.pt) && boundingBox.roi.contains(p.pt))
+        {
+            boundingBox.kptMatches.push_back(*match);
+        }
+    }
+
+    std::vector<float> xValuesCurr, xValuesPrev;
+    std::vector<float> yValuesCurr, yValuesPrev;
+    pair<float, float> msxCurr, msyCurr, msxPrev, msyPrev;
+
+    // check keypoints in Current Frame for outliers
+    for(auto match = boundingBox.kptMatches.begin(); match != boundingBox.kptMatches.end(); match++) {
+        // std::cout << "match->trainIdx: " << match->trainIdx << std::endl;
+        cv::KeyPoint c;
+        c = kptsCurr[match->trainIdx];
+        xValuesCurr.push_back(c.pt.x);
+        yValuesCurr.push_back(c.pt.y);
+
+        c = kptsPrev[match->queryIdx];
+        xValuesPrev.push_back(c.pt.x);
+        yValuesPrev.push_back(c.pt.y);
+    }
+
+    msxCurr = meanStdev(xValuesCurr);
+    msyCurr = meanStdev(yValuesCurr);
+    msxPrev = meanStdev(xValuesPrev);
+    msyPrev = meanStdev(yValuesPrev);
+
+    int threshold = 3;
+    for (auto match = boundingBox.kptMatches.begin(); match != boundingBox.kptMatches.end(); )
+    {
+
+        cv::KeyPoint c = kptsCurr.at(match->trainIdx);
+        if ((
+            (msxCurr.first - threshold * msxCurr.second < c.pt.x) && (c.pt.x < msxCurr.first + threshold * msxCurr.second) &&
+            (msyCurr.first - threshold * msyCurr.second < c.pt.y) && (c.pt.y < msyCurr.first + threshold * msyCurr.second)
+        ) &&
+        (
+            (msxPrev.first - threshold * msxPrev.second < c.pt.x) && (c.pt.x < msxPrev.first + threshold * msxPrev.second) &&
+            (msyPrev.first - threshold * msyPrev.second < c.pt.y) && (c.pt.y < msyPrev.first + threshold * msyPrev.second)
+        ))
+        {
+            match++;
+        }
+        else 
+        {
+            match = boundingBox.kptMatches.erase(match);
+        }
+    }
 }
 
 
@@ -149,8 +205,69 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
 void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, 
                       std::vector<cv::DMatch> kptMatches, double frameRate, double &TTC, cv::Mat *visImg)
 {
-    // ...
+    // Code is taken from https://github.com/udacity/SFND_Camera
+    // Lesson 3 - Engineering a Collision Detection System/Estimating TTC with Camera/solution/compute_ttc_camera.cpp 
+
+    // compute distance ratios between all matched keypoints
+    vector<double> distRatios; // stores the distance ratios for all keypoints between curr. and prev. frame
+    for (auto it1 = kptMatches.begin(); it1 != kptMatches.end() - 1; ++it1)
+    { // outer kpt. loop
+
+        // get current keypoint and its matched partner in the prev. frame
+        cv::KeyPoint kpOuterCurr = kptsCurr.at(it1->trainIdx);
+        cv::KeyPoint kpOuterPrev = kptsPrev.at(it1->queryIdx);
+
+        for (auto it2 = kptMatches.begin() + 1; it2 != kptMatches.end(); ++it2)
+        { // inner kpt.-loop
+
+            double minDist = 100.0; // min. required distance
+
+            // get next keypoint and its matched partner in the prev. frame
+            cv::KeyPoint kpInnerCurr = kptsCurr.at(it2->trainIdx);
+            cv::KeyPoint kpInnerPrev = kptsPrev.at(it2->queryIdx);
+
+            // compute distances and distance ratios
+            double distCurr = cv::norm(kpOuterCurr.pt - kpInnerCurr.pt);
+            double distPrev = cv::norm(kpOuterPrev.pt - kpInnerPrev.pt);
+
+            if (distPrev > std::numeric_limits<double>::epsilon() && distCurr >= minDist)
+            { // avoid division by zero
+                double distRatio = distCurr / distPrev;
+                distRatios.push_back(distRatio);
+            }
+        } // eof inner loop over all matched kpts
+    }     // eof outer loop over all matched kpts
+
+    // only continue if list of distance ratios is not empty
+    if (distRatios.size() == 0)
+    {
+        TTC = NAN;
+        return;
+    }
+
+    std::sort(distRatios.begin(), distRatios.end());
+    long medIndex = floor(distRatios.size() / 2.0);
+    double medDistRatio = distRatios.size() % 2 == 0 ? (distRatios[medIndex - 1] + distRatios[medIndex]) / 2.0 : distRatios[medIndex]; // compute median dist. ratio to remove outlier influence
+
+    float dT = 1 / frameRate;
+    TTC = -dT / (1 - medDistRatio);
 }
+
+
+pair<float, float> meanStdev(std::vector<float> sequence) {
+    // compute mean and stdev of the distances
+    // taken from https://stackoverflow.com/a/7616783
+    double sum = std::accumulate(sequence.begin(), sequence.end(), 0.0);
+    double mean = sum / sequence.size();
+    std::vector<double> diff(sequence.size());
+    std::transform(sequence.begin(), sequence.end(), diff.begin(),
+                    std::bind2nd(std::minus<double>(), mean));
+    double sq_sum = std::inner_product(diff.begin(), diff.end(), diff.begin(), 0.0);
+    double stdev = std::sqrt(sq_sum / sequence.size());
+
+    return pair<float, float>(mean, stdev);
+}
+
 
 // return upper and a lower limit for valid x values in the lidar points 
 // to get rid of outliers. We first get all the valid x values with respect to 
@@ -167,15 +284,9 @@ pair<float, float> getXLimits(std::vector<LidarPoint> &points, float laneWidth)
         }
     }
 
-    // compute mean and stdev of the distances
-    // taken from https://stackoverflow.com/a/7616783
-    double sum = std::accumulate(distances.begin(), distances.end(), 0.0);
-    double mean = sum / distances.size();
-    std::vector<double> diff(distances.size());
-    std::transform(distances.begin(), distances.end(), diff.begin(),
-                    std::bind2nd(std::minus<double>(), mean));
-    double sq_sum = std::inner_product(diff.begin(), diff.end(), diff.begin(), 0.0);
-    double stdev = std::sqrt(sq_sum / distances.size());
+    pair<float, float> ms = meanStdev(distances);
+    float mean = ms.first;
+    float stdev = ms.second;
 
     return pair<float, float>( // return the lower and upper limits 
         mean - 1 * stdev, 
