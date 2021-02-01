@@ -11,6 +11,7 @@
 using namespace std;
 std::vector<int> getBoundingBox(cv::KeyPoint, std::vector<BoundingBox>);
 int getElementWithMostOccurences(vector<int>);
+std::pair<float, float> getXLimits(std::vector<LidarPoint> &points, float);
 
 
 // Create groups of Lidar points whose projection into the camera falls into the same bounding box
@@ -151,6 +152,36 @@ void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPo
     // ...
 }
 
+// return upper and a lower limit for valid x values in the lidar points 
+// to get rid of outliers. We first get all the valid x values with respect to 
+// the lane width and then compute the mean and std of these points. The lower
+// limit is mean-1*sddev and the upper limit is mean+1*stdev
+pair<float, float> getXLimits(std::vector<LidarPoint> &points, float laneWidth)
+{
+    std::vector<float> distances; // contains x values within the ego lane
+    for (auto it = points.begin(); it != points.end(); ++it)
+    {
+        if (abs(it->y) <= laneWidth / 2.0)
+        {
+            distances.push_back(it->x);
+        }
+    }
+
+    // compute mean and stdev of the distances
+    // taken from https://stackoverflow.com/a/7616783
+    double sum = std::accumulate(distances.begin(), distances.end(), 0.0);
+    double mean = sum / distances.size();
+    std::vector<double> diff(distances.size());
+    std::transform(distances.begin(), distances.end(), diff.begin(),
+                    std::bind2nd(std::minus<double>(), mean));
+    double sq_sum = std::inner_product(diff.begin(), diff.end(), diff.begin(), 0.0);
+    double stdev = std::sqrt(sq_sum / distances.size());
+
+    return pair<float, float>( // return the lower and upper limits 
+        mean - 1 * stdev, 
+        mean + 1 * stdev
+    );
+}
 
 void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
                      std::vector<LidarPoint> &lidarPointsCurr, double frameRate, double &TTC)
@@ -165,21 +196,29 @@ void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
 
     // find closest distance to Lidar points within ego lane
     double minXPrev = 1e9, minXCurr = 1e9;
+    pair<float, float> limits;
+    limits = getXLimits(lidarPointsPrev, 2.0);
     for (auto it = lidarPointsPrev.begin(); it != lidarPointsPrev.end(); ++it)
     {
-        
         if (abs(it->y) <= laneWidth / 2.0)
         { // 3D point within ego lane?
-            minXPrev = minXPrev > it->x ? it->x : minXPrev;
+            if (limits.first < it->x && it->x < limits.second)
+            { // use an upper and lower limit to remove outliers.
+                minXPrev = minXPrev > it->x ? it->x : minXPrev;
+            }
         }
     }
 
+    limits = getXLimits(lidarPointsCurr, 2.0);
     for (auto it = lidarPointsCurr.begin(); it != lidarPointsCurr.end(); ++it)
     {
 
         if (abs(it->y) <= laneWidth / 2.0)
         { // 3D point within ego lane?
-            minXCurr = minXCurr > it->x ? it->x : minXCurr;
+            if (limits.first < it->x && it->x < limits.second)
+            { // use an upper and lower limit to remove outliers.
+                minXCurr = minXCurr > it->x ? it->x : minXCurr;
+            }
         }
     }
 
