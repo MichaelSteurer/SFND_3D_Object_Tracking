@@ -232,22 +232,17 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
 // returns the element with max occurrences
 int getElementWithMostOccurences(vector<int> v)
 {
-    // this is terrible. I'm sorry. FIXXXME
     map<int, int> occ;
+    int elementWithMaxOccurences = -1;
+    int maxOccurances = -1;
+
     for(int e: v)
     {
         occ[e] += 1;
-    }
-
-    int elementWithMaxOccurences = -1;
-    int maxOccurances = -1;
-    
-    for (auto it = occ.begin(); it != occ.end(); ++it)
-    {
-        if(it->second > maxOccurances) {
-            maxOccurances = it->second;
-            elementWithMaxOccurences = it->first;
-        } 
+        if (occ[e] > maxOccurances)
+        {
+            elementWithMaxOccurences = e;
+        }
     }
 
     return elementWithMaxOccurences;
