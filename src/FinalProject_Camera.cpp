@@ -22,8 +22,36 @@
 
 using namespace std;
 
+int process(string detectorType, string descriptorType);
+
 /* MAIN PROGRAM */
 int main(int argc, const char *argv[])
+{
+    vector<string> detectorTypes = {"SHITOMASI", "HARRIS", "FAST", "BRISK", "ORB", "AKAZE", "SIFT"};
+    vector<string> descriptorTypes = {"BRISK", "BRIEF", "ORB", "FREAK", "AKAZE", "SIFT"};
+    for (int detectorTypeIterator = 0; detectorTypeIterator < detectorTypes.size(); detectorTypeIterator++)
+    {
+        for (int descriptorTypeIterator = 0; descriptorTypeIterator < descriptorTypes.size(); descriptorTypeIterator++)
+        {
+            string detectorType = detectorTypes[detectorTypeIterator];
+            string descriptorType = descriptorTypes[descriptorTypeIterator];
+            if (
+                (descriptorType == "AKAZE" && detectorType != "AKAZE") ||  // descriptor AKAZE requires detector AKAZE
+                (descriptorType == "SIFT" && detectorType != "SIFT") ||  // descriptor SIFT only with detector sift
+                (descriptorType == "ORB" && detectorType == "SIFT")  // detector SIFT doesn't play well with descriptor ORB
+            )
+            {
+                continue;
+            }
+
+            cout << "TTCC: detectorType: " << detectorType << ", descriptorType " << descriptorType << endl;
+            process(detectorType, descriptorType);
+        }
+    }
+    
+}
+
+int process(string detectorType, string descriptorType) 
 {
     /* INIT VARIABLES AND DATA STRUCTURES */
 
