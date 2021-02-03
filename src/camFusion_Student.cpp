@@ -13,7 +13,7 @@
 using namespace std;
 std::vector<int> getBoundingBox(cv::KeyPoint, std::vector<BoundingBox>);
 int getElementWithMostOccurences(vector<int>);
-std::pair<float, float> getXLimits(std::vector<LidarPoint> &points, float);
+std::pair<float, float> getXLimits(std::vector<LidarPoint> &points, float laneWidth);
 std::pair<float, float> meanStdev(std::vector<float>);
 
 
@@ -134,10 +134,10 @@ void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, 
     cv::namedWindow(windowName, 1);
     cv::imshow(windowName, topviewImg);
 
-    if(bWait)
-    {
-        cv::waitKey(0); // wait for key to be pressed
-    }
+    // if(bWait)
+    // {
+    //     cv::waitKey(0); // wait for key to be pressed
+    // }
 }
 
 
@@ -346,21 +346,15 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
         // get the kp from the current frame and determine the bb it belongs to
         int matchIndexCurr = match->trainIdx;
         cv::KeyPoint keyPointInCurr = currFrame.keypoints.at(matchIndexCurr);
+        // cout << "curr" << endl;
         std::vector<int> boundingBoxIdsCurr = getBoundingBox(keyPointInCurr, currFrame.boundingBoxes);
-        if (boundingBoxIdsCurr.size() != 1) // omit if not enclosed by exactly one bounding box
-        {
-            continue;
-        }
-
+        
         // get the kp from the previous frame and determine the bb it belongs to
         int matchIndexPrev = match->queryIdx;
         cv::KeyPoint keyPointInPrev = prevFrame.keypoints.at(matchIndexPrev);
+        // cout << "prev" << endl;
         std::vector<int> boundingBoxIdsPrev = getBoundingBox(keyPointInPrev, prevFrame.boundingBoxes);
-        if (boundingBoxIdsCurr.size() != 1) // omit if not enclosed by exactly one bounding box
-        {
-            continue;
-        }
-
+        
         for(int boundingBoxIdCurr: boundingBoxIdsCurr) 
         {
             for(int boundingBoxIdPrev: boundingBoxIdsPrev) 
@@ -370,7 +364,6 @@ void matchBoundingBoxes(std::vector<cv::DMatch> &matches, std::map<int, int> &bb
         }
     }
 
-    map <int, int> tempMatchesPrevCurrBest;
     for (auto it = tempMatchesPrevCurr.begin(); it != tempMatchesPrevCurr.end(); ++it)
     {
         int bestBoundingBox = getElementWithMostOccurences(it->second);
