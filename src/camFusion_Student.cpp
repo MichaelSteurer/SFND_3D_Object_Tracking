@@ -175,11 +175,14 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
     msxPrev = meanStdev(xValuesPrev);
     msyPrev = meanStdev(yValuesPrev);
 
+    // threshold is the +- stdev we use to get rid of outliers. In other words:
+    // values must be within a range of "mean - 3*stdev" and "mean + 3*stdev"
     int threshold = 3;
     for (auto match = boundingBox.kptMatches.begin(); match != boundingBox.kptMatches.end(); )
     {
 
         cv::KeyPoint c = kptsCurr.at(match->trainIdx);
+        // use only points that are within a certain threshold.
         if ((
             (msxCurr.first - threshold * msxCurr.second < c.pt.x) && (c.pt.x < msxCurr.first + threshold * msxCurr.second) &&
             (msyCurr.first - threshold * msyCurr.second < c.pt.y) && (c.pt.y < msyCurr.first + threshold * msyCurr.second)
