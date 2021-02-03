@@ -35,13 +35,9 @@ void matchDescriptors(std::vector<cv::KeyPoint> &kPtsSource, std::vector<cv::Key
     }
 }
 
-
 // Use one of several types of state-of-art descriptors to uniquely identify keypoints
 void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descriptors, string descriptorType)
 {
-    // perform feature description
-    double t = (double)cv::getTickCount();
-
     // select appropriate descriptor
     cv::Ptr<cv::DescriptorExtractor> extractor;
     if (descriptorType.compare("BRISK") == 0)
@@ -58,6 +54,7 @@ void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descr
         int bytes = 32;
         bool use_orientation = false;
 
+        // perform feature description
         extractor = cv::xfeatures2d::BriefDescriptorExtractor::create(bytes, use_orientation);
     }
     else if (descriptorType.compare("ORB") == 0)
@@ -115,8 +112,8 @@ void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descr
         return; // Should not happen
     }
 
+    double t = (double)cv::getTickCount();
     extractor->compute(img, keypoints, descriptors);
-
     t = ((double)cv::getTickCount() - t) / cv::getTickFrequency();
     cout << descriptorType << " descriptor extraction in " << 1000 * t / 1.0 << " ms" << endl;
 }

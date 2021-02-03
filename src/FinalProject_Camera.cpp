@@ -178,7 +178,7 @@ int process(string detectorType, string descriptorType)
 
         // extract 2D keypoints from current image
         vector<cv::KeyPoint> keypoints; // create empty feature list for current image
-        // string detectorType = "BRISK";  // BRISK ORB
+        // string detectorType = "";  // SHITOMASI, HARRIS, FAST, BRISK, ORB, AKAZE, SIFT
 
         if (detectorType.compare("SHITOMASI") == 0)
         {
@@ -192,6 +192,7 @@ int process(string detectorType, string descriptorType)
         {
             detKeypointsModern(keypoints, imgGray, detectorType, bVis);
         }
+
         // optional : limit number of keypoints (helpful for debugging and learning)
         bool bLimitKpts = false;
         if (bLimitKpts)

@@ -4,8 +4,6 @@
 #include <numeric>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-// #include <map>
-// #include <set>
 
 #include "camFusion.hpp"
 #include "dataStructures.h"
@@ -134,10 +132,10 @@ void show3DObjects(std::vector<BoundingBox> &boundingBoxes, cv::Size worldSize, 
     cv::namedWindow(windowName, 1);
     cv::imshow(windowName, topviewImg);
 
-    // if(bWait)
-    // {
-    //     cv::waitKey(0); // wait for key to be pressed
-    // }
+    if(bWait)
+    {
+        cv::waitKey(0); // wait for key to be pressed
+    }
 }
 
 
@@ -205,7 +203,7 @@ void clusterKptMatchesWithROI(BoundingBox &boundingBox, std::vector<cv::KeyPoint
 void computeTTCCamera(std::vector<cv::KeyPoint> &kptsPrev, std::vector<cv::KeyPoint> &kptsCurr, 
                       std::vector<cv::DMatch> kptMatches, double frameRate, double &TTC, cv::Mat *visImg)
 {
-    // Code is taken from https://github.com/udacity/SFND_Camera
+    // Parts of the code are taken from https://github.com/udacity/SFND_Camera
     // Lesson 3 - Engineering a Collision Detection System/Estimating TTC with Camera/solution/compute_ttc_camera.cpp 
 
     // compute distance ratios between all matched keypoints
@@ -297,7 +295,7 @@ pair<float, float> getXLimits(std::vector<LidarPoint> &points, float laneWidth)
 void computeTTCLidar(std::vector<LidarPoint> &lidarPointsPrev,
                      std::vector<LidarPoint> &lidarPointsCurr, double frameRate, double &TTC)
 {
-    // Code taken from https://github.com/udacity/SFND_Camera
+    // Parts of the code are taken from https://github.com/udacity/SFND_Camera
     // SFND_Camera/Lesson 3 - Engineering a Collision Detection System/Estimating TTC with Lidar/solution/compute_ttc_lidar.cpp
 
     double dT = 1/frameRate; // time between two measurements in seconds
