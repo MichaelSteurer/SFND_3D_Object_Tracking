@@ -178,7 +178,7 @@ int process(string detectorType, string descriptorType)
 
         // extract 2D keypoints from current image
         vector<cv::KeyPoint> keypoints; // create empty feature list for current image
-        string detectorType = "SHITOMASI";
+        // string detectorType = "BRISK";  // BRISK ORB
 
         if (detectorType.compare("SHITOMASI") == 0)
         {
@@ -215,7 +215,7 @@ int process(string detectorType, string descriptorType)
         /* EXTRACT KEYPOINT DESCRIPTORS */
 
         cv::Mat descriptors;
-        string descriptorType = "BRISK"; // BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT
+        // string descriptorType = ""; // BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT
         descKeypoints((dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->cameraImg, descriptors, descriptorType);
 
         // push descriptors for current frame to end of data buffer
@@ -231,12 +231,12 @@ int process(string detectorType, string descriptorType)
 
             vector<cv::DMatch> matches;
             string matcherType = "MAT_BF";        // MAT_BF, MAT_FLANN
-            string descriptorType = "DES_BINARY"; // DES_BINARY, DES_HOG
+            string descriptorType_ = "DES_BINARY"; // DES_BINARY, DES_HOG
             string selectorType = "SEL_NN";       // SEL_NN, SEL_KNN
 
             matchDescriptors((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints,
                              (dataBuffer.end() - 2)->descriptors, (dataBuffer.end() - 1)->descriptors,
-                             matches, descriptorType, matcherType, selectorType);
+                             matches, descriptorType_, matcherType, selectorType);
 
             // store matches in current data frame
             (dataBuffer.end() - 1)->kptMatches = matches;
