@@ -1,14 +1,32 @@
-# FP 1
+# Report Final Assignment
 
+All the code is available [in Github](https://github.com/MichaelSteurer/SFND_3D_Object_Tracking/tree/final). 
+
+*Note*: Please update the yolo weights file before running the code. See [this](https://knowledge.udacity.com/questions/368015) and [this](https://knowledge.udacity.com/questions/112231) answer in the knowledge base of Udacity - it's still not fixed.
+
+
+# FP 1
+Implementation can be found [here](https://github.com/MichaelSteurer/SFND_3D_Object_Tracking/blob/final/src/camFusion_Student.cpp#L338). 
+
+Iterate through matches, see if points are in the bounding boxes of the two frames and append. The used data structure is not efficient due to additional memory requirements and a little more time to get the most occurrences. Could be improved by using a map in a map. 
 
 # FP 2
 
+Implementation can be found [here](https://github.com/MichaelSteurer/SFND_3D_Object_Tracking/blob/final/src/camFusion_Student.cpp#L295).
+
+Basic code is taken from the class but with additional outlier detection. Compute the mean and use only x-values within a certain range, *i.e.* 2*stdev.
 
 # FP 3
 
+Implementation can be found [here](https://github.com/MichaelSteurer/SFND_3D_Object_Tracking/blob/final/src/camFusion_Student.cpp#L143).
+
+Straightforward implementation to associate keypoints with a bounding box. Again, add a simple threshold based on mean and stdev to eliminate outliers.
 
 # FP 4
 
+Implementation can be found [here](https://github.com/MichaelSteurer/SFND_3D_Object_Tracking/blob/final/src/camFusion_Student.cpp#L203)
+
+Compute the ttc for the camera keypoints. Code taken from class.
 
 # FP 5
 
